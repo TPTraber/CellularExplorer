@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Slime Mold Simulation</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <h1>Slime Mold</h1>
+      <p class="subtitle">Cellular Simulation</p>
+
+      <form id="params-form">
+        <div class="param-group">
+          <h2>Agents</h2>
+          <label>
+            Agent Count
+            <input type="number" name="num_agents" value="1000" min="1" max="100000" />
+          </label>
+          <label>
+            Step Size
+            <input type="number" name="step_size" value="1.0" min="0.1" max="10" step="0.1" />
+          </label>
+        </div>
+
+        <div class="param-group">
+          <h2>Sensors</h2>
+          <label>
+            Sensor Angle (°)
+            <input type="number" name="sensor_angle" value="45" min="1" max="180" />
+          </label>
+          <label>
+            Sensor Distance
+            <input type="number" name="sensor_distance" value="9" min="1" max="50" />
+          </label>
+          <label>
+            Rotation Angle (°)
+            <input type="number" name="rotation_angle" value="45" min="1" max="180" />
+          </label>
+        </div>
+
+        <div class="param-group">
+          <h2>Trail</h2>
+          <label>
+            Deposit Amount
+            <input type="number" name="deposit_amount" value="5.0" min="0.1" max="50" step="0.1" />
+          </label>
+          <label>
+            Decay Rate
+            <input type="number" name="decay_rate" value="0.9" min="0.01" max="1" step="0.01" />
+          </label>
+          <label>
+            Diffuse Rate
+            <input type="number" name="diffuse_rate" value="0.5" min="0.01" max="1" step="0.01" />
+          </label>
+        </div>
+
+        <div class="param-group">
+          <h2>Canvas</h2>
+          <label>
+            Width
+            <input type="number" name="width" value="800" min="100" max="2000" step="10" />
+          </label>
+          <label>
+            Height
+            <input type="number" name="height" value="600" min="100" max="2000" step="10" />
+          </label>
+        </div>
+
+        <button type="submit" id="run-btn">Run Simulation</button>
+      </form>
+
+      <div id="status"></div>
+    </aside>
+
+    <main class="canvas-area">
+      <div class="placeholder">
+        <p>Simulation output will appear here</p>
+      </div>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
