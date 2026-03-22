@@ -79,6 +79,8 @@ label {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  padding-left: 8px;
+  border-left: 2px solid var(--border);
 }
 
 .param-group h2 {
@@ -352,12 +354,38 @@ label {
 .back-btn:hover { color: var(--text); }
 
 .sim-placeholder {
-  border: 1px dashed var(--border);
-  border-radius: 8px;
-  padding: 80px 120px;
-  color: var(--muted);
-  font-size: 14px;
-  text-align: center;
+  position: relative;
+  max-width: 100%;
+  max-height: 100%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  overflow: hidden;
+  background-color: #0d0d14;
+  background-size: cover;
+  background-position: center;
+}
+
+.placeholder-dim {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  transition: background 0.2s;
+}
+.sim-placeholder:hover .placeholder-dim {
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.placeholder-label {
+  position: relative;
+  z-index: 1;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  pointer-events: none;
 }
 
 .sim-stream {
@@ -374,11 +402,10 @@ label {
   width: 280px;
   flex-shrink: 0;
   background: var(--surface);
-  border-left: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   padding: 24px 16px;
-  gap: 20px;
+  gap: 0;
   overflow-y: auto;
 }
 
@@ -386,8 +413,13 @@ label {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  border-bottom: 1px solid var(--border);
-  padding-bottom: 16px;
+  margin-bottom: 8px;
+}
+
+.sim-name-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .slime-name-input {
@@ -395,13 +427,31 @@ label {
   font-weight: 700;
   background: transparent;
   border: none !important;
-  padding: 0 !important;
+  padding: 3px 5px !important;
   color: var(--accent) !important;
+  flex: 1 1 0 !important;
+  min-width: 0;
+  width: 0 !important;
 }
 .slime-name-input:focus {
   outline: none;
   border-bottom: 1px solid var(--accent-dim) !important;
 }
+
+.edit-name-btn {
+  background: none;
+  border: none;
+  color: var(--text);
+  font-size: 14px;
+  cursor: pointer;
+  padding: 2px 4px;
+  flex-shrink: 0;
+  line-height: 1;
+  transition: color 0.15s;
+  transform: scaleY(-1);
+  display: inline-block;
+}
+.edit-name-btn:hover { color: var(--accent); }
 
 .sim-meta-row {
   display: flex;
@@ -417,21 +467,20 @@ label {
 #params-form {
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  flex: 1;
+  gap: 24px;
 }
 
 .sim-actions {
   display: flex;
   gap: 8px;
-  margin-top: 4px;
+  margin-bottom: 12px;
 }
 .sim-actions .btn-primary { flex: 1; }
 
 #status {
   font-size: 12px;
   color: var(--muted);
-  min-height: 16px;
+  margin-bottom: 12px;
 }
 #status.error { color: #f87171; }
 #status.ok { color: var(--accent); }

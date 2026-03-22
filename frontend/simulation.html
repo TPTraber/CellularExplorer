@@ -14,22 +14,22 @@
       <a class="back-btn" href="index.html">&#8592; Gallery</a>
       <img id="sim-stream" class="sim-stream hidden" alt="simulation" draggable="false" crossorigin="anonymous" />
       <div class="sim-placeholder" id="sim-placeholder">
-        <p>Press Run to start the simulation</p>
+        <div class="placeholder-dim"></div>
+        <span class="placeholder-label">Click to start</span>
       </div>
     </main>
 
     <aside class="sim-sidebar">
       <div class="sim-meta">
-        <input class="slime-name-input" type="text" id="slime-name" value="Loading..." />
+        <div class="sim-name-row">
+          <input class="slime-name-input" type="text" id="slime-name" value="Loading..." />
+          <button class="edit-name-btn" id="edit-name-btn" title="Edit name">&#9998;</button>
+        </div>
         <div class="sim-meta-row">
           <span class="slime-author" id="slime-author">by —</span>
           <span class="type-badge" id="type-badge"></span>
         </div>
       </div>
-
-      <form id="params-form">
-        <!-- injected by simulation.js based on type -->
-      </form>
 
       <div class="sim-actions">
         <button type="submit" form="params-form" id="run-btn" class="btn-primary">Run</button>
@@ -37,6 +37,10 @@
       </div>
 
       <div id="status"></div>
+
+      <form id="params-form">
+        <!-- injected by simulation.js based on type -->
+      </form>
     </aside>
 
   </div>

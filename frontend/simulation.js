@@ -9,6 +9,10 @@ const statusEl = document.getElementById("status");
 const runBtn = document.getElementById("run-btn");
 const saveBtn = document.getElementById("save-btn");
 const nameInput = document.getElementById("slime-name");
+document.getElementById("edit-name-btn").addEventListener("click", () => {
+  nameInput.focus();
+  nameInput.select();
+});
 const authorEl = document.getElementById("slime-author");
 const typeBadge = document.getElementById("type-badge");
 
@@ -145,6 +149,15 @@ async function load() {
     typeBadge.className = `type-badge type-badge--${sim.type}`;
     document.title = `${sim.name} | Cellular Simulations`;
     currentSim = sim;
+    const p = sim.params ?? {};
+    const pw = (p.grid_width ?? p.width ?? 320) * (p.cell_size ?? 1);
+    const ph = (p.grid_height ?? p.height ?? 240) * (p.cell_size ?? 1);
+    simPlaceholder.style.width  = pw + "px";
+    simPlaceholder.style.height = ph + "px";
+    if (sim.preview) {
+      simPlaceholder.style.backgroundImage = `url('${sim.preview}')`;
+      simPlaceholder.style.backgroundSize = "cover";
+    }
     buildForm(sim.type);
     fillForm(sim.params);
   } catch (err) {
@@ -154,6 +167,7 @@ async function load() {
 
 const simStream      = document.getElementById("sim-stream");
 const simPlaceholder = document.getElementById("sim-placeholder");
+simPlaceholder.addEventListener("click", () => runBtn.click());
 
 let currentSim = null;  // holds loaded sim object
 let mouseDrawing = false;
