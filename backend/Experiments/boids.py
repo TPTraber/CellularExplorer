@@ -44,7 +44,7 @@ class Boid:
 
     def updatePos(self, speed):
         self.rotation = math.atan2(self.velocity.y , self.velocity.x)
-        self.pos = self.pos + (self.velocity * speed)
+        
         if self.pos.x <= 0:
             self.velocity.x *= -1
         elif self.pos.x >= screen.get_width():
@@ -53,6 +53,8 @@ class Boid:
             self.velocity.y *= -1
         elif self.pos.y >= screen.get_height():
             self.velocity.y *= -1
+        
+        self.pos = self.pos + (self.velocity * speed)
 
     def setNeighbours(self, boids):
         self.neighbors = []
@@ -124,7 +126,8 @@ def stream(sim_id: str, params=None):
     fearR    = float(p["separation_radius"])
 
     pygame.init()
-    screen = pygame.Surface((width, height))
+    screen = pygame.display.set_mode((width, height))
+    
 
     boids = []
     for i in range(boidNum):
@@ -134,8 +137,14 @@ def stream(sim_id: str, params=None):
 
     try:
         while True:
-            dim_surface = pygame.Surface(screen.get_size()).convert_alpha()
-            dim_surface.fill((5, 5, 5))
+
+            trail = False
+            if trail:
+                dim_surface = pygame.Surface(screen.get_size()).convert_alpha()
+                dim_surface.fill((5, 5, 5))
+                screen.blit(dim_surface, (0, 0), special_flags=pygame.BLEND_RGB_SUB)
+            else:
+                screen.fill((0,0,0))
 
             for boi in boids:
                 boi.setNeighbours(boids)
@@ -149,8 +158,7 @@ def stream(sim_id: str, params=None):
                     for x, y in boiTriangle
                 ]
                 pygame.draw.polygon(screen, "white", boiRotate, 2)
-
-            screen.blit(dim_surface, (0, 0), special_flags=pygame.BLEND_RGB_SUB)
+            
 
             arr = pygame.surfarray.array3d(screen)   # (w, h, 3) RGB
             arr = np.transpose(arr, (1, 0, 2))       # -> (h, w, 3)

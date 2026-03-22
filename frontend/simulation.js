@@ -53,9 +53,9 @@ const SCHEMAS = {
       { name: "separation_radius",  label: "Separation Radius",  min: 1, max: 150, step: 1 },
     ]},
     { group: "Weights", fields: [
-      { name: "alignment_weight",   label: "Alignment",   min: 0, max: 5, step: 0.1 },
-      { name: "cohesion_weight",    label: "Cohesion",    min: 0, max: 5, step: 0.1 },
-      { name: "separation_weight",  label: "Separation",  min: 0, max: 5, step: 0.1 },
+      { name: "alignment_weight",   label: "Alignment",   min: 0, max: 5, step: 0.01 },
+      { name: "cohesion_weight",    label: "Cohesion",    min: 0, max: 5, step: 0.01 },
+      { name: "separation_weight",  label: "Separation",  min: 0, max: 5, step: 0.01 },
     ]},
     { group: "Canvas", fields: [
       { name: "width",  label: "Width",  min: 100, max: 2000, step: 10 },
