@@ -218,7 +218,7 @@ async function load() {
     authorEl.textContent = `by ${sim.author}`;
     typeBadge.textContent = TYPE_LABELS[sim.type] ?? sim.type;
     typeBadge.className = `type-badge type-badge--${sim.type}`;
-    document.title = `${sim.name} | Cellular Simulations`;
+    document.title = `${sim.name} | AutomatonLab`;
     currentSim = sim;
     const p = sim.params ?? {};
     const pw = p.display_size ?? (p.grid_width ?? p.width ?? 320) * (p.cell_size ?? 1);
