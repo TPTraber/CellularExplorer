@@ -16,7 +16,7 @@ document.querySelectorAll(".filter-btn").forEach((btn) => {
   });
 });
 
-const TYPE_LABELS = { slime: "Slime Mold", boids: "Boids", cells: "Cells", fluid: "Fluid" };
+const TYPE_LABELS = { slime: "Slime Mold", boids: "Boids", fluid: "Fluid", cubes: "Cubes", automaton: "Automaton" };
 
 function formatDate(ts) {
   return new Date(ts * 1000).toLocaleDateString(undefined, {
@@ -70,19 +70,39 @@ function renderGallery() {
   }
 }
 
+function populateTypePreviews(sims) {
+  const previews = { ...TYPE_PREVIEWS };
+  for (const sim of sims) {
+    if (sim.preview && !previews[sim.type]) previews[sim.type] = sim.preview;
+  }
+  document.querySelectorAll(".type-option").forEach((btn) => {
+    const preview = btn.querySelector(".type-preview");
+    const img = previews[btn.dataset.type];
+    if (img) {
+      preview.style.backgroundImage = `url('${img}')`;
+      preview.style.backgroundSize = "cover";
+      preview.style.backgroundPosition = "center";
+    }
+  });
+}
+
 async function loadGallery() {
   try {
     const res = await fetch(`${API}/api/slimes`);
     if (!res.ok) throw new Error();
     allSims = await res.json();
     renderGallery();
+    populateTypePreviews(allSims);
   } catch {
     grid.innerHTML = `<div class="gallery-empty">Could not reach backend.</div>`;
   }
 }
 
 // Type picker
-newBtn.addEventListener("click", () => picker.classList.remove("hidden"));
+newBtn.addEventListener("click", () => {
+  picker.classList.remove("hidden");
+  populateTypePreviews(allSims);
+});
 pickerClose.addEventListener("click", () => picker.classList.add("hidden"));
 picker.addEventListener("click", (e) => { if (e.target === picker) picker.classList.add("hidden"); });
 

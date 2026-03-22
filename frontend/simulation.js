@@ -16,13 +16,14 @@ document.getElementById("edit-name-btn").addEventListener("click", () => {
 const authorEl = document.getElementById("slime-author");
 const typeBadge = document.getElementById("type-badge");
 
-const TYPE_LABELS = { slime: "Slime Mold", boids: "Boids", cells: "Cells", fluid: "Fluid" };
+const TYPE_LABELS = { slime: "Slime Mold", boids: "Boids", cells: "Cells", fluid: "Fluid", cubes: "Cubes" };
 
 const SCHEMAS = {
   slime: [
     { group: "Agents", fields: [
       { name: "n_agents",   label: "Agent Count",  min: 1000,  max: 200000, step: 1000 },
       { name: "n_species",  label: "Species (1-3)", min: 1,    max: 3,      step: 1    },
+      { name: "colors", label: "Colors", type: "colorpickers", keys: ["color_0", "color_1", "color_2"], defaults: ["#00ffff", "#ff00ff", "#0000ff"] },
     ]},
     { group: "Sensors", fields: [
       { name: "sensor_distance", label: "Sensor Distance",   min: 1,  max: 30,  step: 0.5 },
@@ -90,21 +91,30 @@ const SCHEMAS = {
     ]},
   ],
 
-  cells: [
+  cubes: [
     { group: "Grid", fields: [
-      { name: "grid_width",  label: "Grid Width",  min: 10, max: 500, step: 1 },
-      { name: "grid_height", label: "Grid Height", min: 10, max: 500, step: 1 },
+      { name: "gridsize_x", label: "Grid X", min: 10, max: 100, step: 5 },
+      { name: "gridsize_y", label: "Grid Y", min: 10, max: 100, step: 5 },
+      { name: "gridsize_z", label: "Grid Z", min: 10, max: 100, step: 5 },
     ]},
-    { group: "Birth Rule", fields: [
-      { name: "birth_min", label: "Min Neighbors", min: 0, max: 8, step: 1 },
-      { name: "birth_max", label: "Max Neighbors", min: 0, max: 8, step: 1 },
-    ]},
-    { group: "Survival Rule", fields: [
-      { name: "survival_min", label: "Min Neighbors", min: 0, max: 8, step: 1 },
-      { name: "survival_max", label: "Max Neighbors", min: 0, max: 8, step: 1 },
+    { group: "Display", fields: [
+      { name: "screensize", label: "Screen Size", min: 400, max: 1200, step: 50 },
     ]},
     { group: "Initial State", fields: [
-      { name: "initial_density", label: "Density (0–1)", min: 0, max: 1, step: 0.01 },
+      { name: "density", label: "Density (0–1)", min: 0.01, max: 0.5, step: 0.01 },
+    ]},
+  ],
+
+  automaton: [
+    { group: "Rule", fields: [
+      { name: "rule_number", label: "Rule (8-bit binary)", type: "binary8" },
+      { name: "wrap",        label: "Wrap (0/1)",   min: 0,   max: 1,   step: 1 },
+    ]},
+    { group: "Display", fields: [
+      { name: "width",        label: "Width",        min: 50,  max: 500, step: 10 },
+      { name: "display_rows", label: "Visible Rows", min: 50,  max: 400, step: 10 },
+      { name: "cell_size",    label: "Cell Size",    min: 1,   max: 20,  step: 1  },
+      { name: "fps",          label: "FPS",          min: 1,   max: 30,  step: 1  },
     ]},
   ],
 };
@@ -141,6 +151,32 @@ function buildSwatches(field) {
   return wrap;
 }
 
+function buildColorPickers(field) {
+  const wrap = document.createElement("label");
+  wrap.className = "colorpickers-field";
+  wrap.innerHTML = `<span>${field.label}</span>`;
+  const row = document.createElement("div");
+  row.className = "colorpickers-row";
+  field.keys.forEach((key, i) => {
+    const inp = document.createElement("input");
+    inp.type = "color";
+    inp.name = key;
+    inp.className = "color-dot";
+    inp.value = field.defaults[i];
+    inp.dataset.index = i;
+    row.appendChild(inp);
+  });
+  wrap.appendChild(row);
+  return wrap;
+}
+
+function syncColorPickers() {
+  const nSpecies = parseInt(form.elements["n_species"]?.value ?? 1);
+  form.querySelectorAll("input.color-dot").forEach((inp) => {
+    inp.style.display = parseInt(inp.dataset.index) < nSpecies ? "" : "none";
+  });
+}
+
 function buildForm(type) {
   const schema = SCHEMAS[type] ?? SCHEMAS.slime;
   form.innerHTML = "";
@@ -151,6 +187,12 @@ function buildForm(type) {
     fields.forEach((field) => {
       if (field.type === "swatches") {
         groupEl.appendChild(buildSwatches(field));
+      } else if (field.type === "colorpickers") {
+        groupEl.appendChild(buildColorPickers(field));
+      } else if (field.type === "binary8") {
+        const lbl = document.createElement("label");
+        lbl.innerHTML = `${field.label}<input type="text" name="${field.name}" maxlength="8" pattern="[01]{8}" placeholder="01101110" class="binary8-input" />`;
+        groupEl.appendChild(lbl);
       } else {
         const lbl = document.createElement("label");
         lbl.innerHTML = `${field.label}<input type="number" name="${field.name}" min="${field.min}" max="${field.max}" step="${field.step}" />`;
@@ -165,7 +207,9 @@ function fillForm(params) {
   for (const [key, val] of Object.entries(params)) {
     const input = form.elements[key];
     if (!input) continue;
-    input.value = val;
+    if (input.type === "color") input.value = val;
+    else if (input.classList.contains("binary8-input")) input.value = parseInt(val).toString(2).padStart(8, "0");
+    else input.value = val;
     // Sync swatch active state if this is a hidden swatch input
     const row = input.previousElementSibling;
     if (row && row.classList.contains("swatch-row")) {
@@ -180,7 +224,14 @@ function getFormParams() {
   return Object.fromEntries(
     Array.from(form.elements)
       .filter((el) => el.name)
-      .map((el) => [el.name, Number(el.value)])
+      .map((el) => [
+        el.name,
+        el.type === "color"
+          ? el.value
+          : el.classList.contains("binary8-input")
+            ? parseInt(el.value, 2)
+            : Number(el.value),
+      ])
   );
 }
 
@@ -198,7 +249,7 @@ async function load() {
     authorEl.textContent = `by ${sim.author}`;
     typeBadge.textContent = TYPE_LABELS[sim.type] ?? sim.type;
     typeBadge.className = `type-badge type-badge--${sim.type}`;
-    document.title = `${sim.name} | Cellular Simulations`;
+    document.title = `${sim.name} | AutomatonLab`;
     currentSim = sim;
     const p = sim.params ?? {};
     const pw = p.display_size ?? (p.grid_width ?? p.width ?? 320) * (p.cell_size ?? 1);
@@ -211,6 +262,10 @@ async function load() {
     }
     buildForm(sim.type);
     fillForm(sim.params);
+    if (sim.type === "slime") {
+      syncColorPickers();
+      form.elements["n_species"]?.addEventListener("input", syncColorPickers);
+    }
   } catch (err) {
     setStatus(`Error: ${err.message}`, "error");
   }
@@ -276,6 +331,7 @@ form.addEventListener("submit", async (e) => {
     openMouseWs();
     simStream.classList.remove("hidden");
     simPlaceholder.classList.add("hidden");
+    runBtn.textContent = "Reset";
     setStatus("Running", "ok");
   } catch (err) {
     setStatus(`Error: ${err.message}`, "error");
@@ -283,6 +339,7 @@ form.addEventListener("submit", async (e) => {
     runBtn.disabled = false;
   }
 });
+
 
 function capturePreview() {
   if (simStream.classList.contains("hidden")) return null;

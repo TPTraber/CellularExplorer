@@ -135,6 +135,7 @@ def stream(sim_id: str, params=None):
         startingY = random.randrange(0, height)
         boids.append(Boid(pygame.Vector2(startingX, startingY), sightR, fearR))
 
+    frame_count = 0
     try:
         while True:
 
@@ -147,7 +148,8 @@ def stream(sim_id: str, params=None):
                 screen.fill((0,0,0))
 
             for boi in boids:
-                boi.setNeighbours(boids)
+                if frame_count % 2 == 0:
+                    boi.setNeighbours(boids)
                 boi.updateVelocity(cohM, aliM, sepM)
                 boi.updatePos(0.5)
                 bx = boi.pos.x
@@ -168,6 +170,7 @@ def stream(sim_id: str, params=None):
             if ok:
                 yield buf.tobytes()
 
-            time.sleep(1 / 30)
+            frame_count += 1
+            time.sleep(1 / 15)
     finally:
         pygame.quit()
