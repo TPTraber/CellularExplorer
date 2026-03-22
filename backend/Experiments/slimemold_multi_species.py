@@ -92,7 +92,7 @@ def updateTrails(agents_int, trails):
     diffused_trail = cv2.blur(trails, (3,3)).astype(np.uint8)
     if diffused_trail.ndim == 2:
         diffused_trail = diffused_trail.reshape((*diffused_trail.shape, n_species))
-
+    
     trails = (1-diffusion_speed) * trails + diffusion_speed * diffused_trail
     mask = trails >= evaporation_speed
     trails[mask] -= evaporation_speed
@@ -128,19 +128,20 @@ def getDisplayGrid(agents_int, trails):
         grid[species_agents[:,0], species_agents[:,1]] = trail_color[i]
 
     # Resize for display
-    grid = cv2.resize(grid, (1000, 1000), interpolation=cv2.INTER_LINEAR)
+    grid = cv2.resize(grid, (800, 800), interpolation=cv2.INTER_LINEAR)
     return grid
 
 
 trail_color = [
-    (255, 255, 255),    # teal
+    #(255, 255, 255),    # teal
+    (250, 150, 0),    # teal
     (255, 255, 0),    # cyan
     (255, 0, 255),    # magenta
 ]
 
 n_agents = 10000
-n_species = 1
-gridsize = 800, 800, n_species
+n_species = 3
+gridsize = 600, 600, n_species
 sensor_distance = 3
 sensor_size = 3
 sensor_angle_spacing = math.pi / 4
@@ -149,24 +150,22 @@ diffusion_speed = 0.3
 evaporation_speed = 4
 
 rng = np.random.default_rng(seed=42)
+agents = generateAgents()
+trails = np.zeros(gridsize, dtype=np.uint8)
 
-if __name__ == "__main__":
-    agents = generateAgents()
-    trails = np.zeros(gridsize, dtype=np.uint8)
+start_time = time.time()
+frames = 0
+try:
+    while True:
+        frames += 1
 
-    start_time = time.time()
-    frames = 0
-    try:
-        while True:
-            frames += 1
-
-            agents = updateAgents(agents, trails)
-            agents_int = agents.astype(np.uint32)
-            trails = updateTrails(agents_int, trails)
-            grid = getDisplayGrid(agents_int, trails)
-            cv2.imshow("img", grid)
-            cv2.waitKey(20)
-    except KeyboardInterrupt:
-        total_time = time.time() - start_time
-        fps = round(1/(total_time/frames), 2)
-        print(f"fps: {fps}")
+        agents = updateAgents(agents, trails)
+        agents_int = agents.astype(np.uint32)
+        trails = updateTrails(agents_int, trails)
+        grid = getDisplayGrid(agents_int, trails)
+        cv2.imshow("img", grid)
+        cv2.waitKey(20)
+except KeyboardInterrupt:
+    total_time = time.time() - start_time
+    fps = round(1/(total_time/frames), 2)
+    print(f"fps: {fps}")

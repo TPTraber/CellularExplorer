@@ -166,7 +166,7 @@ def stream_sim(sim_id):
         from experiments.fluid import stream as fluid_stream
         gen = fluid_stream(sim_id, params)
     elif sim_type == "slime":
-        from experiments.slimemold import stream as slime_stream
+        from experiments.slimemold_stream import stream as slime_stream
         gen = slime_stream(sim_id, params)
     elif sim_type == "boids":
         from experiments.boids import stream as boids_stream
