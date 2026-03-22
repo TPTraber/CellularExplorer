@@ -19,9 +19,9 @@
     <button class="filter-btn active" data-filter="all">All</button>
     <button class="filter-btn filter-btn--slime" data-filter="slime">Slime Mold</button>
     <button class="filter-btn filter-btn--boids" data-filter="boids">Boids</button>
-    <button class="filter-btn filter-btn--cells" data-filter="cells">Cells</button>
     <button class="filter-btn filter-btn--fluid" data-filter="fluid">Fluid</button>
     <button class="filter-btn filter-btn--cubes" data-filter="cubes">Cubes</button>
+    <button class="filter-btn filter-btn--automaton" data-filter="automaton">Automaton</button>
   </div>
 
   <main class="gallery-grid" id="gallery-grid">
@@ -53,14 +53,6 @@
           </div>
         </button>
 
-        <button class="type-option" data-type="cells">
-          <div class="type-preview"></div>
-          <div class="type-label">
-            <strong>Cells</strong>
-            <span>Cellular automata rules</span>
-          </div>
-        </button>
-
         <button class="type-option" data-type="fluid">
           <div class="type-preview"></div>
           <div class="type-label">
@@ -77,10 +69,19 @@
           </div>
         </button>
 
+        <button class="type-option" data-type="automaton">
+          <div class="type-preview"></div>
+          <div class="type-label">
+            <strong>Automaton</strong>
+            <span>1D elementary rules</span>
+          </div>
+        </button>
+
       </div>
     </div>
   </div>
 
+  <script src="previews.js"></script>
   <script src="main.js"></script>
 </body>
 </html>

@@ -9,7 +9,7 @@ app = Flask(__name__)
 CORS(app, origins=["http://localhost:6060"])
 sock = Sock(app)
 
-DATA_FILE = os.path.join(os.path.dirname(__file__), "slimes.json")
+DATA_FILE = os.path.join(os.path.dirname(__file__), "simulations.json")
 FRONTEND_DIR = os.path.join(os.path.dirname(__file__), "..", "frontend")
 
 DEFAULT_PARAMS = {
@@ -39,14 +39,13 @@ DEFAULT_PARAMS = {
         "width": 800,
         "height": 600,
     },
-    "cells": {
-        "grid_width": 120,
-        "grid_height": 90,
-        "birth_min": 3,
-        "birth_max": 3,
-        "survival_min": 2,
-        "survival_max": 3,
-        "initial_density": 0.3,
+    "automaton": {
+        "rule_number":  110,
+        "width":        200,
+        "display_rows": 150,
+        "cell_size":    4,
+        "wrap":         1,
+        "fps":          12,
     },
     "cubes": {
         "gridsize_x": 60,
@@ -177,8 +176,11 @@ def stream_sim(sim_id):
         from experiments.slimemold_stream import stream as slime_stream
         gen = slime_stream(sim_id, params)
     elif sim_type == "boids":
-        from experiments.boids import stream as boids_stream
+        from experiments.boid_stream import stream as boids_stream
         gen = boids_stream(sim_id, params)
+    elif sim_type == "automaton":
+        from experiments.singlecell_stream import stream as automaton_stream
+        gen = automaton_stream(sim_id, params)
     elif sim_type == "cubes":
         from experiments.cubes_stream import stream as cubes_stream
         gen = cubes_stream(sim_id, params)

@@ -2,12 +2,7 @@ import pygame
 import random
 import math
 
-# pygame setup
-pygame.init()
-screen = pygame.display.set_mode((1280, 720))
-clock = pygame.time.Clock()
-running = True
-dt = 0
+screen = None
 
 boidNum  = 100
 minSpeed = 3
@@ -90,46 +85,53 @@ class Boid:
             self.velocity = (self.velocity/speed)*maxSpeed
 
 
-boids=[]
+if __name__ == "__main__":
+    pygame.init()
+    screen = pygame.display.set_mode((1280, 720))
+    clock = pygame.time.Clock()
+    running = True
+    dt = 0
 
-for i in range(0,boidNum):
-    startingX = random.randrange(0, screen.get_width())
-    startingY = random.randrange(0, screen.get_width())
-    boids.append(Boid(pygame.Vector2(startingX, startingY), 150, 50))
+    boids=[]
 
-while running:
-    # poll for events
-    # pygame.QUIT event means the user clicked X to close your window
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            running = False
+    for i in range(0,boidNum):
+        startingX = random.randrange(0, screen.get_width())
+        startingY = random.randrange(0, screen.get_width())
+        boids.append(Boid(pygame.Vector2(startingX, startingY), 150, 50))
 
-    # fill the screen with a color to wipe away anything from last frame
-    #screen.fill("black")
-    dim_surface = pygame.Surface(screen.get_size()).convert_alpha()
-    dim_surface.fill((5, 5, 5))
+    while running:
+        # poll for events
+        # pygame.QUIT event means the user clicked X to close your window
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+
+        # fill the screen with a color to wipe away anything from last frame
+        #screen.fill("black")
+        dim_surface = pygame.Surface(screen.get_size()).convert_alpha()
+        dim_surface.fill((5, 5, 5))
 
 
-    for boi in boids:
-        boi.setNeighbours(boids)
-        boi.updateVelocity()
-        boi.updatePos(0.5)
-        bx = boi.pos.x
-        by = boi.pos.y
-        boiTriangle = [(bx, by - 5), (bx - 3, by + 5), (bx, by + 2), (bx + 3, by + 5)]
-        boiRotate = [
-            (pygame.Vector2(x, y) - boi.pos).rotate_rad(boi.rotation + math.pi/2) + boi.pos for x, y in boiTriangle
-        ]
-        pygame.draw.polygon(screen, "white", boiRotate, 2)
+        for boi in boids:
+            boi.setNeighbours(boids)
+            boi.updateVelocity()
+            boi.updatePos(0.5)
+            bx = boi.pos.x
+            by = boi.pos.y
+            boiTriangle = [(bx, by - 5), (bx - 3, by + 5), (bx, by + 2), (bx + 3, by + 5)]
+            boiRotate = [
+                (pygame.Vector2(x, y) - boi.pos).rotate_rad(boi.rotation + math.pi/2) + boi.pos for x, y in boiTriangle
+            ]
+            pygame.draw.polygon(screen, "white", boiRotate, 2)
 
-    screen.blit(dim_surface, (0, 0), special_flags=pygame.BLEND_RGB_SUB)
+        screen.blit(dim_surface, (0, 0), special_flags=pygame.BLEND_RGB_SUB)
 
-    # flip() the display to put your work on screen
-    pygame.display.flip()
+        # flip() the display to put your work on screen
+        pygame.display.flip()
 
-    # limits FPS to 60
-    # dt is delta time in seconds since last frame, used for framerate-
-    # independent physics.
-    dt = clock.tick(60) / 1000
+        # limits FPS to 60
+        # dt is delta time in seconds since last frame, used for framerate-
+        # independent physics.
+        dt = clock.tick(60) / 1000
 
-pygame.quit()
+    pygame.quit()

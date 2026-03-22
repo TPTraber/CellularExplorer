@@ -90,24 +90,6 @@ const SCHEMAS = {
     ]},
   ],
 
-  cells: [
-    { group: "Grid", fields: [
-      { name: "grid_width",  label: "Grid Width",  min: 10, max: 500, step: 1 },
-      { name: "grid_height", label: "Grid Height", min: 10, max: 500, step: 1 },
-    ]},
-    { group: "Birth Rule", fields: [
-      { name: "birth_min", label: "Min Neighbors", min: 0, max: 8, step: 1 },
-      { name: "birth_max", label: "Max Neighbors", min: 0, max: 8, step: 1 },
-    ]},
-    { group: "Survival Rule", fields: [
-      { name: "survival_min", label: "Min Neighbors", min: 0, max: 8, step: 1 },
-      { name: "survival_max", label: "Max Neighbors", min: 0, max: 8, step: 1 },
-    ]},
-    { group: "Initial State", fields: [
-      { name: "initial_density", label: "Density (0–1)", min: 0, max: 1, step: 0.01 },
-    ]},
-  ],
-
   cubes: [
     { group: "Grid", fields: [
       { name: "gridsize_x", label: "Grid X", min: 10, max: 100, step: 5 },
@@ -119,6 +101,19 @@ const SCHEMAS = {
     ]},
     { group: "Initial State", fields: [
       { name: "density", label: "Density (0–1)", min: 0.01, max: 0.5, step: 0.01 },
+    ]},
+  ],
+
+  automaton: [
+    { group: "Rule", fields: [
+      { name: "rule_number", label: "Rule (8-bit binary)", type: "binary8" },
+      { name: "wrap",        label: "Wrap (0/1)",   min: 0,   max: 1,   step: 1 },
+    ]},
+    { group: "Display", fields: [
+      { name: "width",        label: "Width",        min: 50,  max: 500, step: 10 },
+      { name: "display_rows", label: "Visible Rows", min: 50,  max: 400, step: 10 },
+      { name: "cell_size",    label: "Cell Size",    min: 1,   max: 20,  step: 1  },
+      { name: "fps",          label: "FPS",          min: 1,   max: 30,  step: 1  },
     ]},
   ],
 };
@@ -165,6 +160,10 @@ function buildForm(type) {
     fields.forEach((field) => {
       if (field.type === "swatches") {
         groupEl.appendChild(buildSwatches(field));
+      } else if (field.type === "binary8") {
+        const lbl = document.createElement("label");
+        lbl.innerHTML = `${field.label}<input type="text" name="${field.name}" maxlength="8" pattern="[01]{8}" placeholder="01101110" class="binary8-input" />`;
+        groupEl.appendChild(lbl);
       } else {
         const lbl = document.createElement("label");
         lbl.innerHTML = `${field.label}<input type="number" name="${field.name}" min="${field.min}" max="${field.max}" step="${field.step}" />`;
@@ -179,7 +178,9 @@ function fillForm(params) {
   for (const [key, val] of Object.entries(params)) {
     const input = form.elements[key];
     if (!input) continue;
-    input.value = val;
+    input.value = input.classList.contains("binary8-input")
+      ? parseInt(val).toString(2).padStart(8, "0")
+      : val;
     // Sync swatch active state if this is a hidden swatch input
     const row = input.previousElementSibling;
     if (row && row.classList.contains("swatch-row")) {
@@ -194,7 +195,12 @@ function getFormParams() {
   return Object.fromEntries(
     Array.from(form.elements)
       .filter((el) => el.name)
-      .map((el) => [el.name, Number(el.value)])
+      .map((el) => [
+        el.name,
+        el.classList.contains("binary8-input")
+          ? parseInt(el.value, 2)
+          : Number(el.value),
+      ])
   );
 }
 
