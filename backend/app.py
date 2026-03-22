@@ -163,11 +163,14 @@ def stream_sim(sim_id):
     params = sim.get("params", {})
 
     if sim_type == "fluid":
-        from fluid import stream as fluid_stream
+        from experiments.fluid import stream as fluid_stream
         gen = fluid_stream(sim_id, params)
     elif sim_type == "slime":
-        from slimemold import stream as slime_stream
+        from experiments.slimemold import stream as slime_stream
         gen = slime_stream(sim_id, params)
+    elif sim_type == "boids":
+        from experiments.boids import stream as boids_stream
+        gen = boids_stream(sim_id, params)
     else:
         return jsonify({"error": f"Streaming not yet supported for type: {sim_type}"}), 501
 
@@ -188,7 +191,7 @@ def interact(sim_id):
     body = request.json or {}
     sim_type = body.get("type", "fluid")
     if sim_type == "fluid":
-        from fluid import set_mouse_state
+        from experiments.fluid import set_mouse_state
         set_mouse_state(
             sim_id,
             int(body.get("r", 0)),
@@ -200,7 +203,7 @@ def interact(sim_id):
 
 @sock.route("/ws/interact/<sim_id>")
 def ws_interact(ws, sim_id):
-    from fluid import set_mouse_state, clear_mouse_state
+    from experiments.fluid import set_mouse_state, clear_mouse_state
     try:
         while True:
             data = ws.receive()
