@@ -1,149 +1,165 @@
-"""
-Boids flocking simulation (Reynolds rules: cohesion, alignment, separation).
-Numpy/cv2 based so it can stream via Flask.
-Call stream(sim_id, params) or run() directly.
-"""
+import os
+os.environ["SDL_VIDEODRIVER"] = "dummy"
 
+import pygame
+import random
 import math
 import time
 import numpy as np
 import cv2
 
 DEFAULT_PARAMS = {
-    "num_boids":         200,
-    "max_speed":         4.0,
-    "min_speed":         1.0,
-    "perception_radius": 60.0,
-    "separation_radius": 20.0,
-    "alignment_weight":  1.0,
-    "cohesion_weight":   1.0,
-    "separation_weight": 1.5,
-    "width":             800,
-    "height":            600,
+    "num_boids":         100,
+    "max_speed":         8,
+    "min_speed":         3,
+    "perception_radius": 150,
+    "separation_radius": 50,
+    "alignment_weight":  0.05,
+    "cohesion_weight":   0.05,
+    "separation_weight": 0.01,
+    "width":             1280,
+    "height":            720,
 }
 
+# global surface reference so Boid.updatePos can call screen.get_width/height
+screen = None
 
-def _init_boids(n, width, height, rng):
-    pos    = (rng.random((n, 2)) * np.array([width, height])).astype(np.float32)
-    angles = rng.random(n) * 2 * math.pi
-    vel    = np.stack([np.cos(angles), np.sin(angles)], axis=1).astype(np.float32) * 2.0
-    return pos, vel
+# ── Boid class copied verbatim from boid.py ───────────────────────
 
+minSpeed = 3
+maxSpeed = 8
 
-def _step(pos, vel, p, width, height):
-    max_speed = float(p["max_speed"])
-    min_speed = float(p["min_speed"])
-    perc_r    = float(p["perception_radius"])
-    sep_r     = float(p["separation_radius"])
-    aw        = float(p["alignment_weight"])
-    cw        = float(p["cohesion_weight"])
-    sw        = float(p["separation_weight"])
+class Boid:
+    def __init__(self, startingPos, sightDistance, fearDistance):
+        self.pos = startingPos
+        self.sightDistance = sightDistance
+        self.fearDistance = fearDistance
+        self.velocity = pygame.Vector2(random.random() * 10 - 5,random.random() * 10 - 5)
+        self.rotation = 0
+        self.neighbors = []
+        self.evilNeighbors = []
+        self.cohesion = pygame.Vector2()
+        self.separation = pygame.Vector2()
+        self.alignment = pygame.Vector2()
 
-    # Pairwise distances (n, n)
-    dx   = pos[:, 0:1] - pos[:, 0]   # pos[i,0] - pos[j,0]
-    dy   = pos[:, 1:2] - pos[:, 1]
-    dist = np.sqrt(dx * dx + dy * dy) + 1e-6
+    def updatePos(self, speed):
+        self.rotation = math.atan2(self.velocity.y , self.velocity.x)
+        self.pos = self.pos + (self.velocity * speed)
+        if self.pos.x <= 0:
+            self.velocity.x *= -1
+        elif self.pos.x >= screen.get_width():
+            self.velocity.x *= -1
+        if self.pos.y <= 0:
+            self.velocity.y *= -1
+        elif self.pos.y >= screen.get_height():
+            self.velocity.y *= -1
 
-    perc_mask = (dist < perc_r) & (dist > 1e-5)
-    sep_mask  = (dist < sep_r)  & (dist > 1e-5)
+    def setNeighbours(self, boids):
+        self.neighbors = []
+        for boi in boids:
+            boiDis = pygame.Vector2.distance_to(self.pos, boi.pos)
+            if boi != self and boiDis <= self.fearDistance:
+                self.evilNeighbors.append(boi)
+            elif boi != self and boiDis <= self.sightDistance:
+                self.neighbors.append(boi)
 
-    perc_count = perc_mask.sum(axis=1, keepdims=True).clip(min=1).astype(np.float32)
-    sep_count  = sep_mask.sum(axis=1, keepdims=True).clip(min=1).astype(np.float32)
+    def updateCohesion(self):
+        sumVector = pygame.Vector2()
+        if len(self.neighbors) == 0:
+            self.cohesion = pygame.Vector2()
+            return
+        for boi in self.neighbors:
+            sumVector += boi.pos - self.pos
+        self.cohesion = sumVector / len(self.neighbors)
 
-    # Alignment: match average velocity of neighbors
-    align_x = (vel[:, 0] * perc_mask).sum(axis=1, keepdims=True) / perc_count
-    align_y = (vel[:, 1] * perc_mask).sum(axis=1, keepdims=True) / perc_count
-    align   = np.concatenate([align_x, align_y], axis=1)
+    def updateAlignment(self):
+        sumVector = pygame.Vector2()
+        if len(self.neighbors) == 0:
+            self.cohesion = sumVector
+            return
+        for boi in self.neighbors:
+            sumVector += boi.velocity
+        self.alignment = sumVector / len(self.neighbors)
 
-    # Cohesion: steer toward average position of neighbors
-    coh_x   = (pos[:, 0] * perc_mask).sum(axis=1, keepdims=True) / perc_count
-    coh_y   = (pos[:, 1] * perc_mask).sum(axis=1, keepdims=True) / perc_count
-    cohesion = np.concatenate([coh_x, coh_y], axis=1) - pos
+    def updateSeparation(self):
+        sumVector = pygame.Vector2()
+        if len(self.evilNeighbors) == 0:
+            self.separation = sumVector
+            return
+        for boi in self.evilNeighbors:
+            sumVector += self.pos - boi.pos
+        self.separation = sumVector / len(self.evilNeighbors)
 
-    # Separation: steer away from close neighbors
-    sep_x      = (dx * sep_mask).sum(axis=1, keepdims=True) / sep_count
-    sep_y      = (dy * sep_mask).sum(axis=1, keepdims=True) / sep_count
-    separation = np.concatenate([sep_x, sep_y], axis=1)
+    def updateVelocity(self, cohesionM=0.05, alignmentM=0.05, separationM=0.01):
+        self.updateCohesion()
+        self.updateAlignment()
+        self.updateSeparation()
+        self.velocity += self.cohesion * cohesionM
+        self.velocity += self.alignment * alignmentM
+        self.velocity += self.separation * separationM
 
-    vel = vel + align * aw * 0.05 + cohesion * cw * 0.005 + separation * sw * 0.05
+        speed = self.velocity.magnitude()
 
-    # Clamp speed
-    speed = np.linalg.norm(vel, axis=1, keepdims=True)
-    vel   = np.where(speed > max_speed, vel / speed * max_speed, vel)
-    vel   = np.where(speed < min_speed, vel / speed * min_speed, vel)
+        if speed > maxSpeed:
+            self.velocity = (self.velocity / speed) * maxSpeed
+        if speed < minSpeed:
+            self.velocity = (self.velocity / speed) * maxSpeed
 
-    pos = (pos + vel) % np.array([width, height], dtype=np.float32)
-    return pos, vel
-
-
-def _render(frame, pos, vel):
-    frame = (frame * 0.82).astype(np.uint8)
-    angles = np.arctan2(vel[:, 1], vel[:, 0])
-    size = 7
-    for i in range(len(pos)):
-        x, y = float(pos[i, 0]), float(pos[i, 1])
-        a = float(angles[i])
-        tip   = (int(x + math.cos(a) * size),         int(y + math.sin(a) * size))
-        left  = (int(x + math.cos(a + 2.5) * size * 0.55), int(y + math.sin(a + 2.5) * size * 0.55))
-        right = (int(x + math.cos(a - 2.5) * size * 0.55), int(y + math.sin(a - 2.5) * size * 0.55))
-        cv2.fillPoly(frame, [np.array([tip, left, right], dtype=np.int32)], (210, 210, 210))
-    return frame
-
-
-# -- Headless stream -----------------------------------------------
+# ── Stream ────────────────────────────────────────────────────────
 
 def stream(sim_id: str, params=None):
-    p      = {**DEFAULT_PARAMS, **(params or {})}
-    width  = int(p["width"])
-    height = int(p["height"])
-    n      = int(p["num_boids"])
+    global screen, minSpeed, maxSpeed
 
-    rng       = np.random.default_rng()
-    pos, vel  = _init_boids(n, width, height, rng)
-    frame     = np.zeros((height, width, 3), dtype=np.uint8)
+    p = {**DEFAULT_PARAMS, **(params or {})}
+
+    width    = int(p["width"])
+    height   = int(p["height"])
+    boidNum  = int(p["num_boids"])
+    minSpeed = float(p["min_speed"])
+    maxSpeed = float(p["max_speed"])
+    cohM     = float(p["cohesion_weight"])
+    aliM     = float(p["alignment_weight"])
+    sepM     = float(p["separation_weight"])
+    sightR   = float(p["perception_radius"])
+    fearR    = float(p["separation_radius"])
+
+    pygame.init()
+    screen = pygame.Surface((width, height))
+
+    boids = []
+    for i in range(boidNum):
+        startingX = random.randrange(0, width)
+        startingY = random.randrange(0, height)
+        boids.append(Boid(pygame.Vector2(startingX, startingY), sightR, fearR))
 
     try:
         while True:
-            pos, vel = _step(pos, vel, p, width, height)
-            frame    = _render(frame, pos, vel)
-            ok, buf  = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 75])
+            dim_surface = pygame.Surface(screen.get_size()).convert_alpha()
+            dim_surface.fill((5, 5, 5))
+
+            for boi in boids:
+                boi.setNeighbours(boids)
+                boi.updateVelocity(cohM, aliM, sepM)
+                boi.updatePos(0.5)
+                bx = boi.pos.x
+                by = boi.pos.y
+                boiTriangle = [(bx, by - 5), (bx - 3, by + 5), (bx, by + 2), (bx + 3, by + 5)]
+                boiRotate = [
+                    (pygame.Vector2(x, y) - boi.pos).rotate_rad(boi.rotation + math.pi / 2) + boi.pos
+                    for x, y in boiTriangle
+                ]
+                pygame.draw.polygon(screen, "white", boiRotate, 2)
+
+            screen.blit(dim_surface, (0, 0), special_flags=pygame.BLEND_RGB_SUB)
+
+            arr = pygame.surfarray.array3d(screen)   # (w, h, 3) RGB
+            arr = np.transpose(arr, (1, 0, 2))       # -> (h, w, 3)
+            arr = arr[:, :, ::-1]                    # RGB -> BGR for cv2
+
+            ok, buf = cv2.imencode('.jpg', arr, [cv2.IMWRITE_JPEG_QUALITY, 75])
             if ok:
                 yield buf.tobytes()
+
             time.sleep(1 / 30)
     finally:
-        pass
-
-
-# -- Standalone run ------------------------------------------------
-
-def run(params=None):
-    p      = {**DEFAULT_PARAMS, **(params or {})}
-    width  = int(p["width"])
-    height = int(p["height"])
-    n      = int(p["num_boids"])
-
-    rng      = np.random.default_rng()
-    pos, vel = _init_boids(n, width, height, rng)
-    frame    = np.zeros((height, width, 3), dtype=np.uint8)
-
-    win = "Cellular Simulations - Boids"
-    cv2.namedWindow(win, cv2.WINDOW_AUTOSIZE)
-    print("Controls: R=reset  ESC/Q=quit")
-
-    while True:
-        pos, vel = _step(pos, vel, p, width, height)
-        frame    = _render(frame, pos, vel)
-        cv2.imshow(win, frame)
-
-        key = cv2.waitKey(1) & 0xFF
-        if key in (27, ord('q')):
-            break
-        elif key == ord('r'):
-            pos, vel = _init_boids(n, width, height, rng)
-            frame[:] = 0
-
-    cv2.destroyAllWindows()
-
-
-if __name__ == "__main__":
-    run()
+        pygame.quit()
