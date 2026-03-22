@@ -23,6 +23,12 @@ const SCHEMAS = {
     { group: "Agents", fields: [
       { name: "n_agents",   label: "Agent Count",  min: 1000,  max: 200000, step: 1000 },
       { name: "n_species",  label: "Species (1-3)", min: 1,    max: 3,      step: 1    },
+      { name: "colors", label: "Colors", type: "colorpickers",
+        pickers: [
+          { name: "color_0", index: 0 },
+          { name: "color_1", index: 1 },
+          { name: "color_2", index: 2 },
+        ]},
     ]},
     { group: "Sensors", fields: [
       { name: "sensor_distance", label: "Sensor Distance",   min: 1,  max: 30,  step: 0.5 },
@@ -109,6 +115,27 @@ const SCHEMAS = {
   ],
 };
 
+function buildColorPickers(field) {
+  const wrap = document.createElement("div");
+  wrap.className = "colorpickers-field";
+  const lbl = document.createElement("span");
+  lbl.className = "colorpickers-label";
+  lbl.textContent = field.label;
+  wrap.appendChild(lbl);
+  const row = document.createElement("div");
+  row.className = "colorpickers-row";
+  field.pickers.forEach(({ name, index }) => {
+    const input = document.createElement("input");
+    input.type = "color";
+    input.name = name;
+    input.className = "color-dot";
+    input.dataset.colorIndex = index;
+    row.appendChild(input);
+  });
+  wrap.appendChild(row);
+  return wrap;
+}
+
 function buildSwatches(field) {
   const wrap = document.createElement("div");
   wrap.className = "swatch-field";
@@ -141,6 +168,15 @@ function buildSwatches(field) {
   return wrap;
 }
 
+function syncColorPickers() {
+  const nSpeciesInput = form.elements["n_species"];
+  if (!nSpeciesInput) return;
+  const n = parseInt(nSpeciesInput.value) || 1;
+  form.querySelectorAll(".color-dot").forEach((input) => {
+    input.style.display = parseInt(input.dataset.colorIndex) < n ? "" : "none";
+  });
+}
+
 function buildForm(type) {
   const schema = SCHEMAS[type] ?? SCHEMAS.slime;
   form.innerHTML = "";
@@ -151,6 +187,8 @@ function buildForm(type) {
     fields.forEach((field) => {
       if (field.type === "swatches") {
         groupEl.appendChild(buildSwatches(field));
+      } else if (field.type === "colorpickers") {
+        groupEl.appendChild(buildColorPickers(field));
       } else {
         const lbl = document.createElement("label");
         lbl.innerHTML = `${field.label}<input type="number" name="${field.name}" min="${field.min}" max="${field.max}" step="${field.step}" />`;
@@ -159,6 +197,14 @@ function buildForm(type) {
     });
     form.appendChild(groupEl);
   });
+
+  if (type === "slime") {
+    const nSpeciesInput = form.elements["n_species"];
+    if (nSpeciesInput) {
+      nSpeciesInput.addEventListener("input", syncColorPickers);
+      syncColorPickers();
+    }
+  }
 }
 
 function fillForm(params) {
@@ -180,7 +226,7 @@ function getFormParams() {
   return Object.fromEntries(
     Array.from(form.elements)
       .filter((el) => el.name)
-      .map((el) => [el.name, Number(el.value)])
+      .map((el) => [el.name, el.type === "color" ? el.value : Number(el.value)])
   );
 }
 
@@ -211,6 +257,7 @@ async function load() {
     }
     buildForm(sim.type);
     fillForm(sim.params);
+    if (sim.type === "slime") syncColorPickers();
   } catch (err) {
     setStatus(`Error: ${err.message}`, "error");
   }

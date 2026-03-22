@@ -150,22 +150,24 @@ diffusion_speed = 0.3
 evaporation_speed = 4
 
 rng = np.random.default_rng(seed=42)
-agents = generateAgents()
-trails = np.zeros(gridsize, dtype=np.uint8)
 
-start_time = time.time()
-frames = 0
-try:
-    while True:
-        frames += 1
+if __name__ == "__main__":
+    agents = generateAgents()
+    trails = np.zeros(gridsize, dtype=np.uint8)
 
-        agents = updateAgents(agents, trails)
-        agents_int = agents.astype(np.uint32)
-        trails = updateTrails(agents_int, trails)
-        grid = getDisplayGrid(agents_int, trails)
-        cv2.imshow("img", grid)
-        cv2.waitKey(20)
-except KeyboardInterrupt:
-    total_time = time.time() - start_time
-    fps = round(1/(total_time/frames), 2)
-    print(f"fps: {fps}")
+    start_time = time.time()
+    frames = 0
+    try:
+        while True:
+            frames += 1
+
+            agents = updateAgents(agents, trails)
+            agents_int = agents.astype(np.uint32)
+            trails = updateTrails(agents_int, trails)
+            grid = getDisplayGrid(agents_int, trails)
+            cv2.imshow("img", grid)
+            cv2.waitKey(20)
+    except KeyboardInterrupt:
+        total_time = time.time() - start_time
+        fps = round(1/(total_time/frames), 2)
+        print(f"fps: {fps}")
