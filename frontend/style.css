@@ -470,6 +470,33 @@ label {
   gap: 24px;
 }
 
+.swatch-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.swatch-label {
+  font-size: 13px;
+  color: var(--text);
+}
+
+.swatch-row {
+  display: flex;
+  gap: 6px;
+}
+
+.swatch-btn {
+  flex: 1;
+  height: 22px;
+  border: 2px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: border-color 0.15s, transform 0.1s;
+}
+.swatch-btn:hover { transform: scaleY(1.15); }
+.swatch-active { border-color: #fff; }
+
 .sim-actions {
   display: flex;
   gap: 8px;

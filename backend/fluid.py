@@ -6,7 +6,7 @@ Call run(params) or run directly.
 
 import numpy as np
 import cv2
-from scipy.ndimage import map_coordinates, gaussian_filter
+from scipy.ndimage import gaussian_filter
 
 DEFAULT_PARAMS = {
     "grid_width":       320,
@@ -15,38 +15,49 @@ DEFAULT_PARAMS = {
     "dt":               0.04,
     "viscosity":        0.000008,
     "diffusion":        0.000001,
-    "project_iters":    20,
+    "project_iters":    12,
     "mouse_force":      60.0,
     "dye_amount":       1.2,
     "brush_size":       14,
     "swirl_strength":   0.010,
     "decay":            0.993,
     "source_strength":  0.06,
-    "theme":            0,       # 0=inferno 1=turbo 2=ocean 3=hot
-    "color_change":     0,       # 0=static theme, 1=ping-pong through themes
-    "color_speed":      180,     # frames between theme steps
+    "theme":            0,
+    "color_change":     0,
+    "color_speed":      180,
 }
 
-THEMES     = [cv2.COLORMAP_TURBO,  cv2.COLORMAP_OCEAN,
-              cv2.COLORMAP_HOT,    cv2.COLORMAP_INFERNO]
-THEME_NAMES = ["turbo", "ocean", "inferno", "plasma"]
+THEMES = [
+    cv2.COLORMAP_TURBO,
+    cv2.COLORMAP_OCEAN,
+    cv2.COLORMAP_HOT,
+    cv2.COLORMAP_MAGMA,
+    cv2.COLORMAP_VIRIDIS,
+]
+THEME_NAMES = ["turbo", "ocean", "inferno", "magma", "viridis"]
+
+# Diffusion skip threshold -- default viscosity/diffusion produce sigma ~0.18
+# which changes almost nothing; raise threshold to skip those passes entirely.
+_DIFF_SKIP_SIGMA = 0.5
 
 
-# ── Fluid math ────────────────────────────────────────────
+# -- Fluid math ----------------------------------------------------
 
 def diffuse(field: np.ndarray, rate: float, dt: float) -> np.ndarray:
     sigma = np.sqrt(rate * dt) * max(field.shape)
-    if sigma < 0.001:
+    if sigma < _DIFF_SKIP_SIGMA:
         return field
     return gaussian_filter(field, sigma=sigma, mode="wrap")
 
 
-def advect(field: np.ndarray, u: np.ndarray, v: np.ndarray, dt: float) -> np.ndarray:
+def advect(field: np.ndarray, u: np.ndarray, v: np.ndarray, dt: float,
+           r_idx: np.ndarray, c_idx: np.ndarray) -> np.ndarray:
+    """Advect field using cv2.remap (faster than scipy map_coordinates)."""
     rows, cols = field.shape
-    r_idx, c_idx = np.mgrid[0:rows, 0:cols].astype(np.float32)
-    src_r = r_idx - v * dt * rows
-    src_c = c_idx - u * dt * cols
-    return map_coordinates(field, [src_r, src_c], order=1, mode="wrap")
+    src_c = (c_idx - u * dt * cols).astype(np.float32) % cols
+    src_r = (r_idx - v * dt * rows).astype(np.float32) % rows
+    return cv2.remap(field, src_c, src_r, interpolation=cv2.INTER_LINEAR,
+                     borderMode=cv2.BORDER_WRAP)
 
 
 def project(u: np.ndarray, v: np.ndarray, iters: int):
@@ -86,16 +97,24 @@ def make_sources(rows, cols, n=5, rng=None):
     return list(zip(rs.tolist(), cs.tolist()))
 
 
-def apply_sources(dye, sources, radius, strength, rows, cols):
+def precompute_source_kernels(sources, radius, rows, cols):
+    """Precompute gaussian kernels for each source point once at startup."""
+    kernels = []
     for (sr, sc) in sources:
         r0, r1 = max(0, sr - radius), min(rows, sr + radius + 1)
         c0, c1 = max(0, sc - radius), min(cols, sc + radius + 1)
         rr, cc = np.ogrid[r0:r1, c0:c1]
-        kernel = np.exp(-((rr-sr)**2 + (cc-sc)**2) / (2*(radius*0.6)**2)).astype(np.float32)
-        dye[r0:r1, c0:c1] = np.minimum(1.0, dye[r0:r1, c0:c1] + kernel * strength)
+        k = np.exp(-((rr-sr)**2 + (cc-sc)**2) / (2*(radius*0.6)**2)).astype(np.float32)
+        kernels.append((r0, r1, c0, c1, k))
+    return kernels
 
 
-def step(u, v, dye, swirl_u, swirl_v, sources, p):
+def apply_sources(dye, source_kernels, strength):
+    for (r0, r1, c0, c1, k) in source_kernels:
+        dye[r0:r1, c0:c1] = np.minimum(1.0, dye[r0:r1, c0:c1] + k * strength)
+
+
+def step(u, v, dye, swirl_u, swirl_v, source_kernels, p, r_idx, c_idx):
     dt    = p["dt"]
     visc  = p["viscosity"]
     diff  = p["diffusion"]
@@ -106,23 +125,21 @@ def step(u, v, dye, swirl_u, swirl_v, sources, p):
     u = diffuse(u, visc, dt)
     v = diffuse(v, visc, dt)
     u, v = project(u, v, iters)
-    u = advect(u, u, v, dt)
-    v = advect(v, u, v, dt)
-    u, v = project(u, v, iters)
+    u = advect(u, u, v, dt, r_idx, c_idx)
+    v = advect(v, u, v, dt, r_idx, c_idx)
 
     dye = diffuse(dye, diff, dt)
-    dye = advect(dye, u, v, dt)
+    dye = advect(dye, u, v, dt, r_idx, c_idx)
     dye *= p["decay"]
-    apply_sources(dye, sources, radius=16, strength=p["source_strength"],
-                  rows=dye.shape[0], cols=dye.shape[1])
+    apply_sources(dye, source_kernels, p["source_strength"])
     np.clip(dye, 0.0, 1.0, out=dye)
     return u, v, dye
 
 
-# ── Rendering ─────────────────────────────────────────────
+# -- Rendering -----------------------------------------------------
 
 def render(dye: np.ndarray, cell_size: int, theme_idx: int) -> np.ndarray:
-    smooth = gaussian_filter(dye, sigma=1.4)
+    smooth = cv2.GaussianBlur(dye, (0, 0), sigmaX=1.4)
     soft   = np.power(np.clip(smooth, 0.0, 1.0), 0.6).astype(np.float32)
     gray   = (soft * 255).astype(np.uint8)
     colored = cv2.applyColorMap(gray, THEMES[theme_idx % len(THEMES)])
@@ -133,7 +150,7 @@ def render(dye: np.ndarray, cell_size: int, theme_idx: int) -> np.ndarray:
     return colored
 
 
-# ── Brush ─────────────────────────────────────────────────
+# -- Brush ---------------------------------------------------------
 
 def gaussian_brush(field, cr, cc, radius, amount, rows, cols):
     r0, r1 = max(0, cr - radius), min(rows, cr + radius + 1)
@@ -145,7 +162,7 @@ def gaussian_brush(field, cr, cc, radius, amount, rows, cols):
     field[r0:r1, c0:c1] = np.minimum(1.0, field[r0:r1, c0:c1] + kernel * amount)
 
 
-# ── Mouse state ───────────────────────────────────────────
+# -- Mouse state ---------------------------------------------------
 
 _mouse: dict = {}
 
@@ -163,7 +180,7 @@ def clear_mouse_state(sim_id: str):
     _mouse.pop(sim_id, None)
 
 
-# ── Headless stream ───────────────────────────────────────
+# -- Headless stream -----------------------------------------------
 
 def stream(sim_id: str, params=None):
     import time
@@ -187,8 +204,11 @@ def stream(sim_id: str, params=None):
     v   = np.zeros((rows, cols), dtype=np.float32)
     dye = np.zeros((rows, cols), dtype=np.float32)
 
+    # Precompute coordinate grids and source kernels
+    r_idx, c_idx = np.mgrid[0:rows, 0:cols].astype(np.float32)
     swirl_u, swirl_v = make_swirl(rows, cols, float(p["swirl_strength"]))
     sources = make_sources(rows, cols, n=5, rng=rng)
+    source_kernels = precompute_source_kernels(sources, radius=16, rows=rows, cols=cols)
 
     try:
         while True:
@@ -208,7 +228,7 @@ def stream(sim_id: str, params=None):
                     v[r0:r1, c0:c1] += kernel * dr * force * p["dt"]
                 gaussian_brush(dye, cr, cc, brad, damt, rows, cols)
 
-            u, v, dye = step(u, v, dye, swirl_u, swirl_v, sources, p)
+            u, v, dye = step(u, v, dye, swirl_u, swirl_v, source_kernels, p, r_idx, c_idx)
 
             if color_change and frame_count > 0 and frame_count % color_speed == 0:
                 theme += theme_dir
@@ -218,17 +238,17 @@ def stream(sim_id: str, params=None):
                     theme_dir = 1
 
             frame = render(dye, cs, theme)
-            ok, buf = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 82])
+            ok, buf = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 70])
             if ok:
                 yield buf.tobytes()
 
             frame_count += 1
-            time.sleep(1 / 60)
+            time.sleep(1 / 30)
     finally:
         clear_mouse_state(sim_id)
 
 
-# ── Standalone run ────────────────────────────────────────
+# -- Standalone run ------------------------------------------------
 
 def run(params: dict = None):
     p = {**DEFAULT_PARAMS, **(params or {})}
@@ -251,8 +271,10 @@ def run(params: dict = None):
     v   = np.zeros((rows, cols), dtype=np.float32)
     dye = np.zeros((rows, cols), dtype=np.float32)
 
+    r_idx, c_idx = np.mgrid[0:rows, 0:cols].astype(np.float32)
     swirl_u, swirl_v = make_swirl(rows, cols, float(p["swirl_strength"]))
     sources = make_sources(rows, cols, n=5, rng=rng)
+    source_kernels = precompute_source_kernels(sources, radius=16, rows=rows, cols=cols)
 
     mouse_pos  = None
     mouse_prev = None
@@ -294,7 +316,7 @@ def run(params: dict = None):
             gaussian_brush(dye, cr, cc, brad, damt, rows, cols)
             mouse_prev = mouse_pos
 
-        u, v, dye = step(u, v, dye, swirl_u, swirl_v, sources, p)
+        u, v, dye = step(u, v, dye, swirl_u, swirl_v, source_kernels, p, r_idx, c_idx)
 
         if color_change and frame_count > 0 and frame_count % color_speed == 0:
             theme += theme_dir
@@ -313,6 +335,7 @@ def run(params: dict = None):
         elif key == ord('r'):
             u[:] = 0; v[:] = 0; dye[:] = 0
             sources = make_sources(rows, cols, n=5, rng=rng)
+            source_kernels = precompute_source_kernels(sources, radius=16, rows=rows, cols=cols)
 
     cv2.destroyAllWindows()
 

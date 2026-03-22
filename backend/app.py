@@ -3,24 +3,28 @@ import os
 import time
 from flask import Flask, jsonify, request, Response
 from flask_cors import CORS
+from flask_sock import Sock
 
 app = Flask(__name__)
 CORS(app, origins=["http://localhost:6060"])
+sock = Sock(app)
 
 DATA_FILE = os.path.join(os.path.dirname(__file__), "slimes.json")
 
 DEFAULT_PARAMS = {
     "slime": {
-        "num_agents": 1000,
-        "sensor_angle": 45.0,
-        "sensor_distance": 9.0,
-        "rotation_angle": 45.0,
-        "step_size": 1.0,
-        "deposit_amount": 5.0,
-        "decay_rate": 0.9,
-        "diffuse_rate": 0.5,
-        "width": 800,
-        "height": 600,
+        "grid_width":         500,
+        "grid_height":        500,
+        "display_size":       800,
+        "n_agents":           30000,
+        "n_species":          1,
+        "sensor_distance":    9.0,
+        "sensor_size":        5,
+        "sensor_angle":       45.0,
+        "turn_speed":         9.0,
+        "diffusion_speed":    0.2,
+        "evaporation_speed":  2.0,
+        "deposit_amount":     255.0,
     },
     "boids": {
         "num_boids": 200,
@@ -161,6 +165,9 @@ def stream_sim(sim_id):
     if sim_type == "fluid":
         from fluid import stream as fluid_stream
         gen = fluid_stream(sim_id, params)
+    elif sim_type == "slime":
+        from slimemold import stream as slime_stream
+        gen = slime_stream(sim_id, params)
     else:
         return jsonify({"error": f"Streaming not yet supported for type: {sim_type}"}), 501
 
@@ -189,6 +196,25 @@ def interact(sim_id):
             bool(body.get("drawing", False)),
         )
     return jsonify({"ok": True})
+
+
+@sock.route("/ws/interact/<sim_id>")
+def ws_interact(ws, sim_id):
+    from fluid import set_mouse_state, clear_mouse_state
+    try:
+        while True:
+            data = ws.receive()
+            if data is None:
+                break
+            body = json.loads(data)
+            set_mouse_state(
+                sim_id,
+                int(body.get("r", 0)),
+                int(body.get("c", 0)),
+                bool(body.get("drawing", False)),
+            )
+    finally:
+        clear_mouse_state(sim_id)
 
 
 @app.route("/api/health", methods=["GET"])

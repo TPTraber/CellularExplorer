@@ -21,22 +21,24 @@ const TYPE_LABELS = { slime: "Slime Mold", boids: "Boids", cells: "Cells", fluid
 const SCHEMAS = {
   slime: [
     { group: "Agents", fields: [
-      { name: "num_agents",    label: "Agent Count",       min: 1,    max: 100000, step: 1    },
-      { name: "step_size",     label: "Step Size",         min: 0.1,  max: 10,     step: 0.1  },
+      { name: "n_agents",   label: "Agent Count",  min: 1000,  max: 200000, step: 1000 },
+      { name: "n_species",  label: "Species (1-3)", min: 1,    max: 3,      step: 1    },
     ]},
     { group: "Sensors", fields: [
-      { name: "sensor_angle",    label: "Sensor Angle (°)",  min: 1,  max: 180, step: 1   },
-      { name: "sensor_distance", label: "Sensor Distance",   min: 1,  max: 50,  step: 1   },
-      { name: "rotation_angle",  label: "Rotation Angle (°)",min: 1,  max: 180, step: 1   },
+      { name: "sensor_distance", label: "Sensor Distance",   min: 1,  max: 30,  step: 0.5 },
+      { name: "sensor_size",     label: "Sensor Kernel Size", min: 1,  max: 15,  step: 2   },
+      { name: "sensor_angle",    label: "Sensor Angle (°)",   min: 1,  max: 180, step: 1   },
+      { name: "turn_speed",      label: "Turn Speed (°)",     min: 1,  max: 90,  step: 1   },
     ]},
     { group: "Trail", fields: [
-      { name: "deposit_amount", label: "Deposit Amount", min: 0.1, max: 50, step: 0.1 },
-      { name: "decay_rate",     label: "Decay Rate",     min: 0.01, max: 1, step: 0.01 },
-      { name: "diffuse_rate",   label: "Diffuse Rate",   min: 0.01, max: 1, step: 0.01 },
+      { name: "deposit_amount",   label: "Deposit Amount",   min: 10,  max: 255, step: 5   },
+      { name: "evaporation_speed",label: "Evaporation Speed",min: 0.1, max: 10,  step: 0.1 },
+      { name: "diffusion_speed",  label: "Diffusion Speed",  min: 0,   max: 1,   step: 0.01},
     ]},
-    { group: "Canvas", fields: [
-      { name: "width",  label: "Width",  min: 100, max: 2000, step: 10 },
-      { name: "height", label: "Height", min: 100, max: 2000, step: 10 },
+    { group: "Grid", fields: [
+      { name: "grid_width",   label: "Grid Width",    min: 100, max: 1000, step: 50 },
+      { name: "grid_height",  label: "Grid Height",   min: 100, max: 1000, step: 50 },
+      { name: "display_size", label: "Display Size",  min: 200, max: 1200, step: 50 },
     ]},
   ],
 
@@ -72,8 +74,13 @@ const SCHEMAS = {
       { name: "dye_amount",      label: "Mouse Dye Amount", min: 0.1, max: 3, step: 0.1 },
     ]},
     { group: "Color", fields: [
-      { name: "theme",         label: "Theme (0=turbo 1=ocean 2=inferno 3=plasma)", min: 0, max: 3, step: 1 },
-      { name: "color_change",  label: "Auto Color Cycle (0/1)", min: 0, max: 1,   step: 1    },
+      { name: "theme", label: "Theme", type: "swatches", options: [
+          { value: 0, label: "Turbo",   gradient: "linear-gradient(to right,#30123b,#4145ab,#39a2fc,#1bcfd4,#61fc6c,#efcf2e,#e95807,#c82103)" },
+          { value: 1, label: "Ocean",   gradient: "linear-gradient(to right,#000033,#003366,#0066aa,#33ccff,#99eeff)" },
+          { value: 2, label: "Inferno", gradient: "linear-gradient(to right,#000,#8b0000,#ff4500,#ffa500,#fff)" },
+          { value: 3, label: "Magma",   gradient: "linear-gradient(to right,#000004,#3b0f70,#8c2981,#de4968,#fea16e,#fcfdbf)" },
+          { value: 4, label: "Viridis", gradient: "linear-gradient(to right,#440154,#31688e,#21918c,#35b779,#fde725)" },
+        ]},
       { name: "color_speed",   label: "Cycle Speed (frames)",   min: 30, max: 600, step: 10  },
     ]},
     { group: "Advanced", fields: [
@@ -102,6 +109,38 @@ const SCHEMAS = {
   ],
 };
 
+function buildSwatches(field) {
+  const wrap = document.createElement("div");
+  wrap.className = "swatch-field";
+  const lbl = document.createElement("span");
+  lbl.className = "swatch-label";
+  lbl.textContent = field.label;
+  wrap.appendChild(lbl);
+  const row = document.createElement("div");
+  row.className = "swatch-row";
+  const hidden = document.createElement("input");
+  hidden.type = "hidden";
+  hidden.name = field.name;
+  hidden.value = field.options[0].value;
+  field.options.forEach((opt) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "swatch-btn";
+    btn.title = opt.label;
+    btn.style.background = opt.gradient;
+    btn.dataset.value = opt.value;
+    btn.addEventListener("click", () => {
+      row.querySelectorAll(".swatch-btn").forEach((b) => b.classList.remove("swatch-active"));
+      btn.classList.add("swatch-active");
+      hidden.value = opt.value;
+    });
+    row.appendChild(btn);
+  });
+  wrap.appendChild(row);
+  wrap.appendChild(hidden);
+  return wrap;
+}
+
 function buildForm(type) {
   const schema = SCHEMAS[type] ?? SCHEMAS.slime;
   form.innerHTML = "";
@@ -109,10 +148,14 @@ function buildForm(type) {
     const groupEl = document.createElement("div");
     groupEl.className = "param-group";
     groupEl.innerHTML = `<h2>${group}</h2>`;
-    fields.forEach(({ name, label, min, max, step }) => {
-      const lbl = document.createElement("label");
-      lbl.innerHTML = `${label}<input type="number" name="${name}" min="${min}" max="${max}" step="${step}" />`;
-      groupEl.appendChild(lbl);
+    fields.forEach((field) => {
+      if (field.type === "swatches") {
+        groupEl.appendChild(buildSwatches(field));
+      } else {
+        const lbl = document.createElement("label");
+        lbl.innerHTML = `${field.label}<input type="number" name="${field.name}" min="${field.min}" max="${field.max}" step="${field.step}" />`;
+        groupEl.appendChild(lbl);
+      }
     });
     form.appendChild(groupEl);
   });
@@ -121,7 +164,15 @@ function buildForm(type) {
 function fillForm(params) {
   for (const [key, val] of Object.entries(params)) {
     const input = form.elements[key];
-    if (input) input.value = val;
+    if (!input) continue;
+    input.value = val;
+    // Sync swatch active state if this is a hidden swatch input
+    const row = input.previousElementSibling;
+    if (row && row.classList.contains("swatch-row")) {
+      row.querySelectorAll(".swatch-btn").forEach((b) => {
+        b.classList.toggle("swatch-active", Number(b.dataset.value) === Number(val));
+      });
+    }
   }
 }
 
@@ -150,8 +201,8 @@ async function load() {
     document.title = `${sim.name} | Cellular Simulations`;
     currentSim = sim;
     const p = sim.params ?? {};
-    const pw = (p.grid_width ?? p.width ?? 320) * (p.cell_size ?? 1);
-    const ph = (p.grid_height ?? p.height ?? 240) * (p.cell_size ?? 1);
+    const pw = p.display_size ?? (p.grid_width ?? p.width ?? 320) * (p.cell_size ?? 1);
+    const ph = p.display_size ?? (p.grid_height ?? p.height ?? 240) * (p.cell_size ?? 1);
     simPlaceholder.style.width  = pw + "px";
     simPlaceholder.style.height = ph + "px";
     if (sim.preview) {
@@ -171,29 +222,26 @@ simPlaceholder.addEventListener("click", () => runBtn.click());
 
 let currentSim = null;  // holds loaded sim object
 let mouseDrawing = false;
-let interactThrottle = null;
+let mouseWs = null;
+
+function openMouseWs() {
+  if (mouseWs && mouseWs.readyState <= WebSocket.OPEN) return;
+  mouseWs = new WebSocket(`ws://localhost:7070/ws/interact/${simId}`);
+  mouseWs.addEventListener("close", () => { mouseWs = null; });
+  mouseWs.addEventListener("error", () => { mouseWs = null; });
+}
 
 function sendMouse(clientX, clientY, drawing) {
   if (!currentSim || currentSim.type !== "fluid") return;
-  const cs    = currentSim.params.cell_size   ?? 3;
   const gCols = currentSim.params.grid_width  ?? 320;
   const gRows = currentSim.params.grid_height ?? 240;
   const rect  = simStream.getBoundingClientRect();
-  // Convert display pixels to grid cell coords using known sim dimensions
   const c = Math.max(0, Math.min(gCols - 1,
     Math.floor(((clientX - rect.left) / rect.width)  * gCols)));
   const r = Math.max(0, Math.min(gRows - 1,
     Math.floor(((clientY - rect.top)  / rect.height) * gRows)));
-  // Always send mousedown; throttle mousemove to every 30ms
-  if (!drawing || !interactThrottle) {
-    if (drawing) {
-      interactThrottle = setTimeout(() => { interactThrottle = null; }, 30);
-    }
-    fetch(`${API}/api/interact/${simId}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ type: currentSim.type, r, c, drawing }),
-    }).catch(() => {});
+  if (mouseWs && mouseWs.readyState === WebSocket.OPEN) {
+    mouseWs.send(JSON.stringify({ r, c, drawing }));
   }
 }
 
@@ -225,6 +273,7 @@ form.addEventListener("submit", async (e) => {
 
     // Point img at the MJPEG stream (cache-bust so it restarts on re-run)
     simStream.src = `${API}/api/stream/${simId}?t=${Date.now()}`;
+    openMouseWs();
     simStream.classList.remove("hidden");
     simPlaceholder.classList.add("hidden");
     setStatus("Running", "ok");
@@ -240,8 +289,9 @@ function capturePreview() {
   try {
     const canvas = document.createElement("canvas");
     const p = currentSim?.params ?? {};
-    canvas.width  = (p.grid_width  ?? 320) * (p.cell_size ?? 3);
-    canvas.height = (p.grid_height ?? 240) * (p.cell_size ?? 3);
+    const d = p.display_size;
+    canvas.width  = d ?? (p.grid_width  ?? 320) * (p.cell_size ?? 3);
+    canvas.height = d ?? (p.grid_height ?? 240) * (p.cell_size ?? 3);
     canvas.getContext("2d").drawImage(simStream, 0, 0, canvas.width, canvas.height);
     return canvas.toDataURL("image/jpeg", 0.75);
   } catch {
