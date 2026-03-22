@@ -1,7 +1,7 @@
 import json
 import os
 import time
-from flask import Flask, jsonify, request, Response
+from flask import Flask, jsonify, request, Response, send_from_directory
 from flask_cors import CORS
 from flask_sock import Sock
 
@@ -10,6 +10,7 @@ CORS(app, origins=["http://localhost:6060"])
 sock = Sock(app)
 
 DATA_FILE = os.path.join(os.path.dirname(__file__), "slimes.json")
+FRONTEND_DIR = os.path.join(os.path.dirname(__file__), "..", "frontend")
 
 DEFAULT_PARAMS = {
     "slime": {
@@ -223,6 +224,21 @@ def ws_interact(ws, sim_id):
 @app.route("/api/health", methods=["GET"])
 def health():
     return jsonify({"status": "ok"})
+
+
+@app.route("/static/<path:filename>")
+def serve_static(filename):
+    return send_from_directory(FRONTEND_DIR, filename)
+
+
+@app.route("/")
+def serve_index():
+    return send_from_directory(FRONTEND_DIR, "index.html")
+
+
+@app.route("/<path:path>")
+def serve_spa(path):
+    return send_from_directory(FRONTEND_DIR, "index.html")
 
 
 if __name__ == "__main__":
