@@ -61,8 +61,14 @@ def animate_rule(
     ) -> None:
 
     rule_map = rule_to_map(rule_number)
-    row = np.zeros(width, dtype=np.uint8)
-    row[width // 2] = 1
+
+    # accrding to wolfram research paper
+    ether = "000100110111111"
+    tile = np.array([int(ch) for ch in ether], dtype=np.uint8)
+
+    repeats = (width + len(tile) - 1) // len(tile)
+    row = np.tile(tile, repeats)[:width].copy()
+
 
     grid = np.zeros((steps, width), dtype=np.uint8)
     grid[0] = row
