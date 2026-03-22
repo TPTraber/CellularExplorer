@@ -100,8 +100,8 @@ label {
 .page-gallery {
   height: 100vh;
   overflow: hidden;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-rows: auto auto 1fr;
 }
 
 .gallery-header {
@@ -127,7 +127,6 @@ label {
 }
 
 .gallery-grid {
-  flex: 1;
   overflow-y: auto;
   padding: 32px;
   display: grid;
@@ -203,6 +202,40 @@ label {
 .type-badge--boids   { background: #1a2a3d; color: #38bdf8; }
 .type-badge--cells   { background: #3d1a2b; color: #f472b6; }
 .type-badge--fluid   { background: #1a2e3d; color: #fb923c; }
+
+.filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 32px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.filter-btn {
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  color: var(--muted);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 12px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+  letter-spacing: 0.03em;
+}
+.filter-btn:hover {
+  color: var(--text);
+  border-color: var(--muted);
+}
+.filter-btn.active                { color: var(--text);    border-color: var(--muted); background: #1e1e26; }
+.filter-btn--slime.active         { color: #39ff88; border-color: #1a3d2b; background: #1a3d2b; }
+.filter-btn--boids.active         { color: #38bdf8; border-color: #1a2a3d; background: #1a2a3d; }
+.filter-btn--cells.active         { color: #f472b6; border-color: #3d1a2b; background: #3d1a2b; }
+.filter-btn--fluid.active         { color: #fb923c; border-color: #1a2e3d; background: #1a2e3d; }
 
 .gallery-empty {
   grid-column: 1 / -1;

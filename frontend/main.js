@@ -4,6 +4,18 @@ const newBtn = document.getElementById("new-btn");
 const picker = document.getElementById("type-picker");
 const pickerClose = document.getElementById("picker-close");
 
+let allSims = [];
+let activeFilter = "all";
+
+document.querySelectorAll(".filter-btn").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".filter-btn").forEach((b) => b.classList.remove("active"));
+    btn.classList.add("active");
+    activeFilter = btn.dataset.filter;
+    renderGallery();
+  });
+});
+
 const TYPE_LABELS = { slime: "Slime Mold", boids: "Boids", cells: "Cells", fluid: "Fluid" };
 
 function formatDate(ts) {
@@ -44,19 +56,26 @@ async function createSim(type) {
   return res.json();
 }
 
+function renderGallery() {
+  const filtered = activeFilter === "all" ? allSims : allSims.filter((s) => s.type === activeFilter);
+  grid.innerHTML = "";
+  filtered.forEach((s) => grid.appendChild(createCard(s)));
+  if (filtered.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "gallery-empty";
+    empty.textContent = allSims.length === 0
+      ? "No simulations yet. Hit + New to get started."
+      : `No ${activeFilter} simulations yet.`;
+    grid.appendChild(empty);
+  }
+}
+
 async function loadGallery() {
   try {
     const res = await fetch(`${API}/api/slimes`);
     if (!res.ok) throw new Error();
-    const sims = await res.json();
-    grid.innerHTML = "";
-    sims.forEach((s) => grid.appendChild(createCard(s)));
-    if (sims.length === 0) {
-      const empty = document.createElement("div");
-      empty.className = "gallery-empty";
-      empty.textContent = "No simulations yet. Hit + New to get started.";
-      grid.appendChild(empty);
-    }
+    allSims = await res.json();
+    renderGallery();
   } catch {
     grid.innerHTML = `<div class="gallery-empty">Could not reach backend.</div>`;
   }
