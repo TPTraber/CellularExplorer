@@ -30,13 +30,13 @@ class Boid:
         self.rotation = math.atan2(self.velocity.y , self.velocity.x)
         self.pos = self.pos + (self.velocity * speed)
         if self.pos.x <= 0:
-            self.pos.x = screen.get_width()
+            self.velocity.x *= -1
         elif self.pos.x >= screen.get_width():
-            self.pos.x = 0
+            self.velocity.x *= -1
         if self.pos.y <= 0:
-            self.pos.y = screen.get_height()
+            self.velocity.y *= -1
         elif self.pos.y >= screen.get_height():
-            self.pos.y = 0
+            self.velocity.y *= -1
     
     def setNeighbours(self, boids):
         self.neighbors = []
@@ -74,13 +74,13 @@ class Boid:
             sumVector += self.pos - boi.pos
         self.separation = sumVector / len(self.evilNeighbors)
 
-    def updateVelocity(self, cohesionM = 0.1, alignmentM = 0.3, separationM = 0.1):
+    def updateVelocity(self, cohesionM = 0.05, alignmentM = 0.05, separationM = 0.01):
         self.updateCohesion()
         self.updateAlignment()
         self.updateSeparation()
-        self.velocity += self.cohesion * cohesionM / self.sightDistance
-        self.velocity += self.alignment * alignmentM / self.sightDistance
-        self.velocity += self.separation * separationM / self.sightDistance
+        self.velocity += self.cohesion * cohesionM
+        self.velocity += self.alignment * alignmentM
+        self.velocity += self.separation * separationM
 
         speed = self.velocity.magnitude()
 
@@ -113,7 +113,7 @@ while running:
     for boi in boids:
         boi.setNeighbours(boids)
         boi.updateVelocity()
-        boi.updatePos(0.1)
+        boi.updatePos(0.5)
         bx = boi.pos.x
         by = boi.pos.y
         boiTriangle = [(bx, by - 5), (bx - 3, by + 5), (bx, by + 2), (bx + 3, by + 5)]
