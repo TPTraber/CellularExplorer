@@ -142,19 +142,20 @@ def animate_rule(
 
 def main():
     animate_rule(
-        rule_number=80,
-        width=140,  # Minimum final width; animate_rule rounds up to a valid aligned width.
-        steps=60,
+        rule_number=127,
+        width=140, 
+        steps=80,
         cell_size=10,
-        fps=15,
+        fps=12,
         wrap=True,
         show_preview=True, 
         ether="0",
-        seed1 ="11111010011111001110011011111" 
+        seed1 ="100010101111010100011"
     )
+"""
     animate_rule(
         rule_number=110,
-        width=140,  # Minimum final width; animate_rule rounds up to a valid aligned width.
+        width=140, 
         steps=60,
         cell_size=10,
         fps=15,
@@ -166,7 +167,7 @@ def main():
 
     animate_rule(
         rule_number=110,
-        width=140,  # Minimum final width; animate_rule rounds up to a valid aligned width.
+        width=140, 
         steps=60,
         cell_size=10,
         fps=15,
@@ -200,7 +201,7 @@ def main():
         seed1 ="111110",
         seed2 = "11111010",
     )
-
+"""
 
 
     # possible glider seeds: https://www.comunidad.escom.ipn.mx/genaro/Papers/Papers_on_CA_files/ATLAS/node14.html
